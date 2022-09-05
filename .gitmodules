@@ -1,0 +1,3 @@
+[submodule "pymstodo"]
+	path = pymstodo
+	url = git@github.com:endotronic/pymstodo.git
