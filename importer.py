@@ -11,36 +11,53 @@ def date_only(dt: datetime) -> datetime:
     return datetime.combine(dt.date(), datetime.min.time())
 
 
-client_id = environ.get("MICROSOFT_TODO_CLIENT_ID")
-client_secret = environ.get("MICROSOFT_TODO_CLIENT_SECRET")
+todo_client_id = environ.get("MICROSOFT_TODO_CLIENT_ID")
+todo_client_secret = environ.get("MICROSOFT_TODO_CLIENT_SECRET")
 
-redirect_resp = environ.get("MICROSOFT_TODO_RESPONSE_URL")
-if not redirect_resp:
-    auth_url = ToDoConnection.get_auth_url(client_id)
-    print("Authorize at " + auth_url)
+ticktick_auth_client = OAuth2(
+    client_id=environ.get("TICKTICK_CLIENT_ID"),
+    client_secret=environ.get("TICKTICK_CLIENT_SECRET"),
+    redirect_uri=environ.get("TICKTICK_CLIENT_REDIRECT_URL"),
+    cache_path="/cache/token-oauth",
+    get_token_now=False,
+)
+
+todo_response_url = environ.get("MICROSOFT_TODO_RESPONSE_URL")
+if not todo_response_url:
+    auth_url = ToDoConnection.get_auth_url(todo_client_id)
+    print("Authorize MS ToDo at " + auth_url)
+
+ticktick_response_url = environ.get("TICKTICK_RESPONSE_URL")
+if not ticktick_response_url:
+    auth_url = ticktick_auth_client.get_auth_url()
+    print("Authorize TickTick at " + auth_url)
+
+if not todo_response_url or not ticktick_response_url:
     sleep(300)
     exit(0)
 
-token = ToDoConnection.get_token(client_id, client_secret, redirect_resp)
+token = ToDoConnection.get_token(
+    client_id=todo_client_id, 
+    client_secret=todo_client_secret, 
+    redirect_resp=todo_response_url,
+)
 todo_client = ToDoConnection(
-    client_id=client_id, client_secret=client_secret, token=token
+    client_id=todo_client_id, 
+    client_secret=todo_client_secret, 
+    token=token,
 )
 
 lists = todo_client.get_lists()
 task_list = lists[0]
 
-
-auth_client = OAuth2(
-    client_id=environ.get("TICKTICK_CLIENT_ID"),
-    client_secret=environ.get("TICKTICK_CLIENT_ID"),
-    redirect_uri=environ.get("TICKTICK_CLIENT_REDIRECT_URI"),
-    cache_path="/cache/token-oauth",
+ticktick_auth_client.get_access_token(
+    use_browser=False, 
+    redirected_url=ticktick_response_url,
 )
-
-client = TickTickClient(
+ticktick_client = TickTickClient(
     environ.get("TICKTICK_USERNAME"),
     environ.get("TICKTICK_PASSWORD"),
-    auth_client,
+    ticktick_auth_client,
 )
 
 print("Starting...")
@@ -48,7 +65,7 @@ while True:
     tasks = todo_client.get_tasks(task_list.list_id)
     for task in tasks:
         print("Importing {}...".format(task.title))
-        tt_task = client.task.builder(
+        tt_task = ticktick_client.task.builder(
             task.title,
             startDate=date_only(task.created_date),
             dueDate=task.reminder_date,
@@ -61,7 +78,7 @@ while True:
             del tt_task["startDate"]
             tt_task["reminders"] = ["TRIGGER:PT0S"]
 
-        client.task.create(tt_task)
+        ticktick_client.task.create(tt_task)
 
         print("Deleting {} from MS-TODO.".format(task.task_id))
         todo_client.delete_task(task.task_id, task_list.list_id)
