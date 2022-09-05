@@ -36,7 +36,8 @@ WORKDIR /opt/$module_name
 
 # Install application into container
 COPY $module_name.py .
-COPY pymstodo/pymstodo ./pymstodo/
+COPY submodules/pymstodo/pymstodo ./pymstodo/
+COPY submodules/ticktick_py/ticktick ./ticktick/
 
 # Run the application
 ENV MAIN=$module_name
