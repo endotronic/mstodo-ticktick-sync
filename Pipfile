@@ -6,12 +6,13 @@ name = "pypi"
 [packages]
 attrs = "*"
 prometheus-client = "*"
-ticktick-py = "*"
 requests-oauthlib = "*"
+pytz = "*"
 
 [dev-packages]
 mypy = "*"
 black = "==21.9b0"
+types-requests = "*"
 
 [requires]
 python_version = "3.9"

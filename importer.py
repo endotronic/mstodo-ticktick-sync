@@ -3,10 +3,9 @@ from time import sleep
 from os import environ
 from sys import exit
 
-from pymstodo.client import ToDoConnection
+from pymstodo import ToDoConnection
 from ticktick.oauth2 import OAuth2  # OAuth2 Manager
 from ticktick.api import TickTickClient  # Main Interface
-
 
 def date_only(dt: datetime) -> datetime:
     return datetime.combine(dt.date(), datetime.min.time())

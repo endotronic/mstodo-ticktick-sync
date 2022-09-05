@@ -1,3 +1,6 @@
 [submodule "pymstodo"]
-	path = pymstodo
+	path = submodules/pymstodo
 	url = https://github.com/endotronic/pymstodo.git
+[submodule "ticktick_py"]
+	path = submodules/ticktick_py
+	url = https://github.com/endotronic/ticktick-py.git
