@@ -1,7 +1,7 @@
 from datetime import datetime
 from time import sleep
 from threading import Thread
-from os import environ
+from os import environ, path
 
 import http.server 
 import socketserver 
@@ -13,6 +13,9 @@ from ticktick.api import TickTickClient  # Main Interface
 
 def date_only(dt: datetime) -> datetime:
     return datetime.combine(dt.date(), datetime.min.time())
+
+class MSToDoConnection(ToDoConnection):
+    _redirect: str = environ.get("MICROSOFT_TODO_REDIRECT_URL")
  
 
 todo_client_id = environ.get("MICROSOFT_TODO_CLIENT_ID")
@@ -30,15 +33,15 @@ token = None
 todo_client = None
 todo_response_url = environ.get("MICROSOFT_TODO_RESPONSE_URL")
 if not todo_response_url:
-    auth_url = ToDoConnection.get_auth_url(todo_client_id)
+    auth_url = MSToDoConnection.get_auth_url(todo_client_id)
     print("Authorize MS ToDo at " + auth_url)
 else:
-    token = ToDoConnection.get_token(
+    token = MSToDoConnection.get_token(
         client_id=todo_client_id, 
         client_secret=todo_client_secret, 
         redirect_resp=todo_response_url,
     )
-    todo_client = ToDoConnection(
+    todo_client = MSToDoConnection(
         client_id=todo_client_id, 
         client_secret=todo_client_secret, 
         token=token,
@@ -62,13 +65,13 @@ class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
         if url_parts.path == "/login/authorized":
             try:
                 print("Authorizing with MS ToDo")
-                todo_response_url = "https://localhost/" + self.path # fake it to make oauth2 happy
-                token = ToDoConnection.get_token(
+                todo_response_url = path.join(environ.get("MICROSOFT_TODO_REDIRECT_URL"), self.path) # fake it to make oauth2 happy
+                token = MSToDoConnection.get_token(
                     client_id=todo_client_id, 
                     client_secret=todo_client_secret, 
                     redirect_resp=todo_response_url,
                 )
-                todo_client = ToDoConnection(
+                todo_client = MSToDoConnection(
                     client_id=todo_client_id, 
                     client_secret=todo_client_secret, 
                     token=token,
@@ -79,7 +82,7 @@ class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
         elif url_parts.query.startswith("code"):
             try:
                 print("Authorizing with TickTick")
-                ticktick_response_url = "https://localhost/" + self.path # fake it to make oauth2 happy
+                ticktick_response_url = path.join(environ.get("TICKTICK_CLIENT_REDIRECT_URL"), self.path) # fake it to make oauth2 happy
                 ticktick_auth_client.get_access_token(
                     use_browser=False, 
                     redirected_url=ticktick_response_url,
@@ -95,7 +98,7 @@ class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
 
         if not todo_response_url:
             self.send_response(302)
-            auth_url = ToDoConnection.get_auth_url(todo_client_id)
+            auth_url = MSToDoConnection.get_auth_url(todo_client_id)
             self.send_header('Location', auth_url)
             print("Redirecting browser to " + auth_url)
         elif not ticktick_response_url:
