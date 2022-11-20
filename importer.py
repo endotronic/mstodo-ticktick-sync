@@ -18,15 +18,22 @@ def date_only(dt: datetime) -> datetime:
 
 class MSToDoConnection(ToDoConnection):
     _redirect: str = environ.get("MICROSOFT_TODO_REDIRECT_URL")
+
+if not MSToDoConnection._redirect:
+    raise Exception("Missing MICROSOFT_TODO_REDIRECT_URL")
  
 
 todo_client_id = environ.get("MICROSOFT_TODO_CLIENT_ID")
 todo_client_secret = environ.get("MICROSOFT_TODO_CLIENT_SECRET")
 
+ticktick_redirect_url = environ.get("TICKTICK_CLIENT_REDIRECT_URL")
+if not ticktick_redirect_url:
+    raise Exception("Missing TICKTICK_CLIENT_REDIRECT_URL")
+
 ticktick_auth_client = OAuth2(
     client_id=environ.get("TICKTICK_CLIENT_ID"),
     client_secret=environ.get("TICKTICK_CLIENT_SECRET"),
-    redirect_uri=environ.get("TICKTICK_CLIENT_REDIRECT_URL"),
+    redirect_uri=ticktick_redirect_url,
     cache_path="/cache/token-oauth",
     get_token_now=False,
 )
@@ -67,7 +74,7 @@ class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
         if url_parts.path == "/login/authorized":
             try:
                 print("Authorizing with MS ToDo")
-                todo_response_url = path.join(environ.get("MICROSOFT_TODO_REDIRECT_URL"), self.path) # fake it to make oauth2 happy
+                todo_response_url = path.join(MSToDoConnection._redirect, self.path.strip("/")) # fake it to make oauth2 happy
                 print("Response URL: " + todo_response_url)
                 token = MSToDoConnection.get_token(
                     client_id=todo_client_id, 
@@ -85,7 +92,7 @@ class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
         elif url_parts.query.startswith("code"):
             try:
                 print("Authorizing with TickTick")
-                ticktick_response_url = path.join(environ.get("TICKTICK_CLIENT_REDIRECT_URL"), self.path) # fake it to make oauth2 happy
+                ticktick_response_url = path.join(ticktick_redirect_url, self.path.strip("/")) # fake it to make oauth2 happy
                 print("Response URL: " + ticktick_response_url)
                 ticktick_auth_client.get_access_token(
                     use_browser=False, 
@@ -128,7 +135,7 @@ lists = todo_client.get_lists()
 task_list = lists[0]
 
 start_http_server(8000)
-sync_counter = Counter("todo_sync_counter")
+sync_counter = Counter("todo_sync_counter", "Count of syncs betwen MS ToDo and Tick Tick")
 
 print("Starting...")
 while True:
