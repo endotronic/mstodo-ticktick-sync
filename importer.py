@@ -7,9 +7,11 @@ import http.server
 import socketserver 
 from urllib.parse import urlparse
 
+from prometheus_client import start_http_server, Counter  # type: ignore
 from pymstodo import ToDoConnection
 from ticktick.oauth2 import OAuth2  # OAuth2 Manager
 from ticktick.api import TickTickClient  # Main Interface
+
 
 def date_only(dt: datetime) -> datetime:
     return datetime.combine(dt.date(), datetime.min.time())
@@ -66,6 +68,7 @@ class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
             try:
                 print("Authorizing with MS ToDo")
                 todo_response_url = path.join(environ.get("MICROSOFT_TODO_REDIRECT_URL"), self.path) # fake it to make oauth2 happy
+                print("Response URL: " + todo_response_url)
                 token = MSToDoConnection.get_token(
                     client_id=todo_client_id, 
                     client_secret=todo_client_secret, 
@@ -83,6 +86,7 @@ class MyHttpRequestHandler(http.server.SimpleHTTPRequestHandler):
             try:
                 print("Authorizing with TickTick")
                 ticktick_response_url = path.join(environ.get("TICKTICK_CLIENT_REDIRECT_URL"), self.path) # fake it to make oauth2 happy
+                print("Response URL: " + ticktick_response_url)
                 ticktick_auth_client.get_access_token(
                     use_browser=False, 
                     redirected_url=ticktick_response_url,
@@ -123,6 +127,9 @@ if not todo_response_url or not ticktick_response_url:
 lists = todo_client.get_lists()
 task_list = lists[0]
 
+start_http_server(8000)
+sync_counter = Counter("todo_sync_counter")
+
 print("Starting...")
 while True:
     tasks = todo_client.get_tasks(task_list.list_id)
@@ -146,4 +153,5 @@ while True:
         print("Deleting {} from MS-TODO.".format(task.task_id))
         todo_client.delete_task(task.task_id, task_list.list_id)
 
-    sleep(300)
+    sync_counter.inc()
+    sleep(60)
