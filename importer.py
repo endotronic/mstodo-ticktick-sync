@@ -2,6 +2,7 @@ from datetime import datetime
 from time import sleep
 from threading import Thread
 from os import environ, path
+import traceback
 
 import http.server 
 import socketserver 
@@ -136,29 +137,37 @@ task_list = lists[0]
 
 start_http_server(8000)
 sync_counter = Counter("todo_sync_counter", "Count of syncs betwen MS ToDo and Tick Tick")
+error_counter = Counter("todo_error_counter", "Count of errors encountered during sync")
+task_counter = Counter("todo_task_counter", "Count of tasks synced betwen MS ToDo and Tick Tick")
 
 print("Starting...")
 while True:
-    tasks = todo_client.get_tasks(task_list.list_id)
-    for task in tasks:
-        print("Importing {}...".format(task.title))
-        tt_task = ticktick_client.task.builder(
-            task.title,
-            startDate=date_only(task.created_date),
-            dueDate=task.reminder_date,
-            timeZone="GMT",
-            desc="Imported",
-        )
+    try:
+        tasks = todo_client.get_tasks(task_list.list_id)
+        for task in tasks:
+            print("Importing {}...".format(task.title))
+            tt_task = ticktick_client.task.builder(
+                task.title,
+                startDate=date_only(task.created_date),
+                dueDate=task.reminder_date,
+                timeZone="GMT",
+                desc="Imported",
+            )
 
-        # It seems like TickTick won't do reminders when there is a start date
-        if task.reminder_date:
-            del tt_task["startDate"]
-            tt_task["reminders"] = ["TRIGGER:PT0S"]
+            # It seems like TickTick won't do reminders when there is a start date
+            if task.reminder_date:
+                del tt_task["startDate"]
+                tt_task["reminders"] = ["TRIGGER:PT0S"]
 
-        ticktick_client.task.create(tt_task)
+            ticktick_client.task.create(tt_task)
 
-        print("Deleting {} from MS-TODO.".format(task.task_id))
-        todo_client.delete_task(task.task_id, task_list.list_id)
-
-    sync_counter.inc()
-    sleep(60)
+            print("Deleting {} from MS-TODO.".format(task.task_id))
+            todo_client.delete_task(task.task_id, task_list.list_id)
+            task_counter.inc()
+    except:
+        traceback.print_exc()
+        error_counter.inc()
+        sleep(15)
+    else:
+        sync_counter.inc()
+        sleep(60)
